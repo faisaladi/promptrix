@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Sparkles, Loader2 } from "lucide-react";
+import { Sparkles, Loader2, Eye, EyeOff } from "lucide-react";
 
 export default function Auth() {
   const navigate = useNavigate();
@@ -15,13 +15,26 @@ export default function Auth() {
   const [isLoading, setIsLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
     try {
-      if (isLogin) {
+      if (isForgotPassword) {
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: `${window.location.origin}/`,
+        });
+        if (error) throw error;
+        toast({
+          title: "Success",
+          description: "Password reset email sent! Check your inbox.",
+        });
+        setIsForgotPassword(false);
+        setIsLogin(true);
+      } else if (isLogin) {
         const { error } = await supabase.auth.signInWithPassword({
           email,
           password,
@@ -61,7 +74,11 @@ export default function Auth() {
           <div>
             <CardTitle className="text-2xl">Welcome to PromptHub</CardTitle>
             <CardDescription>
-              {isLogin ? "Sign in to your account" : "Create a new account"}
+              {isForgotPassword 
+                ? "Reset your password" 
+                : isLogin 
+                  ? "Sign in to your account" 
+                  : "Create a new account"}
             </CardDescription>
           </div>
         </CardHeader>
@@ -78,17 +95,33 @@ export default function Auth() {
                 required
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-            </div>
+            {!isForgotPassword && (
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    className="pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
             <Button
               type="submit"
               className="w-full bg-gradient-to-r from-primary to-primary-glow shadow-glow transition-all hover:shadow-lg"
@@ -99,6 +132,8 @@ export default function Auth() {
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Please wait...
                 </>
+              ) : isForgotPassword ? (
+                "Send Reset Email"
               ) : isLogin ? (
                 "Sign In"
               ) : (
@@ -106,14 +141,35 @@ export default function Auth() {
               )}
             </Button>
           </form>
-          <div className="mt-4 text-center text-sm">
+          <div className="mt-4 space-y-2 text-center text-sm">
+            {isLogin && !isForgotPassword && (
+              <button
+                type="button"
+                onClick={() => setIsForgotPassword(true)}
+                className="text-primary hover:underline block w-full"
+              >
+                Forgot password?
+              </button>
+            )}
             <button
               type="button"
-              onClick={() => setIsLogin(!isLogin)}
+              onClick={() => {
+                setIsForgotPassword(false);
+                setIsLogin(!isLogin);
+              }}
               className="text-primary hover:underline"
             >
-              {isLogin ? "Don't have an account? Sign up" : "Already have an account? Sign in"}
+              {isForgotPassword || isLogin ? "Don't have an account? Sign up" : "Already have an account? Sign in"}
             </button>
+            {isForgotPassword && (
+              <button
+                type="button"
+                onClick={() => setIsForgotPassword(false)}
+                className="text-muted-foreground hover:text-foreground hover:underline"
+              >
+                Back to sign in
+              </button>
+            )}
           </div>
         </CardContent>
       </Card>
