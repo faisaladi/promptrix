@@ -7,6 +7,7 @@ import { Layout } from "./components/Layout";
 import PromptAgent from "./pages/PromptAgent";
 import PromptLibrary from "./pages/PromptLibrary";
 import Auth from "./pages/Auth";
+import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import { useEffect, useState } from "react";
 import { supabase } from "./integrations/supabase/client";
@@ -66,6 +67,7 @@ const App = () => {
             <Routes>
               <Route path="/" element={<PromptAgent />} />
               <Route path="/library" element={<PromptLibrary />} />
+              <Route path="/settings" element={<Settings />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Layout>
