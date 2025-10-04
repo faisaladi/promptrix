@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Sparkles, Loader2, Eye, EyeOff } from "lucide-react";
+import { Loader2, Eye, EyeOff } from "lucide-react";
+import promptrixLogo from "@/assets/promptrix-logo.png";
 
 export default function Auth() {
   const navigate = useNavigate();
@@ -68,11 +69,11 @@ export default function Auth() {
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-background via-secondary/20 to-primary/5 p-4">
       <Card className="w-full max-w-md shadow-lg">
         <CardHeader className="space-y-4 text-center">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-primary-glow shadow-glow">
-            <Sparkles className="h-8 w-8 text-primary-foreground" />
+          <div className="mx-auto flex h-20 w-20 items-center justify-center">
+            <img src={promptrixLogo} alt="Promptrix" className="h-full w-full" />
           </div>
           <div>
-            <CardTitle className="text-2xl">Welcome to PromptHub</CardTitle>
+            <CardTitle className="text-2xl">Welcome to Promptrix</CardTitle>
             <CardDescription>
               {isForgotPassword 
                 ? "Reset your password" 

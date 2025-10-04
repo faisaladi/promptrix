@@ -1,4 +1,5 @@
-import { Library, Sparkles, Settings, LogOut, MessageSquare } from "lucide-react";
+import { Library, Settings, LogOut, MessageSquare } from "lucide-react";
+import promptrixLogo from "@/assets/promptrix-logo.png";
 import { NavLink, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -20,7 +21,7 @@ const menuItems = [
   {
     title: "New Chat",
     url: "/",
-    icon: Sparkles,
+    icon: MessageSquare,
   },
   {
     title: "Prompt Library",
@@ -51,11 +52,9 @@ export function AppSidebar() {
   return (
     <Sidebar className="border-r border-sidebar-border">
       <SidebarHeader className="border-b border-sidebar-border p-6">
-        <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-primary-glow">
-            <Sparkles className="h-4 w-4 text-primary-foreground" />
-          </div>
-          <span className="text-lg font-semibold text-sidebar-foreground">PromptHub</span>
+        <div className="flex items-center gap-3">
+          <img src={promptrixLogo} alt="Promptrix" className="h-10 w-10" />
+          <span className="text-xl font-bold text-sidebar-foreground">Promptrix</span>
         </div>
       </SidebarHeader>
       
