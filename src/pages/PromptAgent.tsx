@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,16 +7,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Copy, Download, Sparkles } from "lucide-react";
+import { Loader2, Sparkles, MessageSquare } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 export default function PromptAgent() {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [selectedPromptId, setSelectedPromptId] = useState<string>("");
-  const [inputContent, setInputContent] = useState("");
-  const [additionalInstruction, setAdditionalInstruction] = useState("");
+  const [userMessage, setUserMessage] = useState("");
   const [selectedModel, setSelectedModel] = useState("google/gemini-2.5-flash");
-  const [result, setResult] = useState("");
-  const [isRunning, setIsRunning] = useState(false);
 
   const { data: prompts, isLoading } = useQuery({
     queryKey: ["active-prompts"],
@@ -34,95 +33,34 @@ export default function PromptAgent() {
 
   const selectedPrompt = prompts?.find(p => p.id === selectedPromptId);
 
-  const handleRun = async () => {
-    if (!selectedPrompt) {
-      toast({
-        title: "Error",
-        description: "Please select a prompt",
-        variant: "destructive",
-      });
-      return;
-    }
+  const startChat = useMutation({
+    mutationFn: async () => {
+      if (!selectedPromptId || !userMessage.trim()) {
+        throw new Error("Please select a prompt and enter a message");
+      }
 
-    if (!inputContent.trim()) {
-      toast({
-        title: "Error",
-        description: "Please provide input content",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsRunning(true);
-    setResult("");
-
-    try {
-      const { data, error } = await supabase.functions.invoke("run-prompt", {
+      const { data, error } = await supabase.functions.invoke("chat-session", {
         body: {
-          promptTemplate: selectedPrompt.prompt_template,
-          inputContent,
-          additionalInstruction,
+          promptId: selectedPromptId,
+          userMessage,
           model: selectedModel,
         },
       });
 
       if (error) throw error;
-
-      setResult(data.result);
-
-      // Save to chat history
-      const { data: user } = await supabase.auth.getUser();
-      if (user.user) {
-        await supabase.from("chat_history").insert({
-          user_id: user.user.id,
-          prompt_id: selectedPromptId,
-          input_content: inputContent,
-          additional_instruction: additionalInstruction,
-          model: selectedModel,
-          result: data.result,
-        });
-      }
-
-      toast({
-        title: "Success",
-        description: "Prompt executed successfully",
-      });
-    } catch (error: any) {
-      console.error("Error running prompt:", error);
+      return data;
+    },
+    onSuccess: (data) => {
+      navigate(`/chat/${data.conversationId}`);
+    },
+    onError: (error: any) => {
       toast({
         title: "Error",
-        description: error.message || "Failed to run prompt",
+        description: error.message || "Failed to start chat",
         variant: "destructive",
       });
-    } finally {
-      setIsRunning(false);
-    }
-  };
-
-  const handleCopy = () => {
-    navigator.clipboard.writeText(result);
-    toast({
-      title: "Copied",
-      description: "Result copied to clipboard",
-    });
-  };
-
-  const handleDownload = () => {
-    const blob = new Blob([result], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `prompt-result-${Date.now()}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    
-    toast({
-      title: "Downloaded",
-      description: "Result downloaded successfully",
-    });
-  };
+    },
+  });
 
   return (
     <div className="container max-w-6xl py-8">
@@ -169,24 +107,13 @@ export default function PromptAgent() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="input">Input Content</Label>
+              <Label htmlFor="message">Start your conversation...</Label>
               <Textarea
-                id="input"
-                placeholder="Enter your content or paste markdown/text..."
-                value={inputContent}
-                onChange={(e) => setInputContent(e.target.value)}
-                className="min-h-[150px] resize-none"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="additional">Additional Instructions (Optional)</Label>
-              <Textarea
-                id="additional"
-                placeholder="Add any extra instructions..."
-                value={additionalInstruction}
-                onChange={(e) => setAdditionalInstruction(e.target.value)}
-                className="min-h-[100px] resize-none"
+                id="message"
+                placeholder="Type your message here..."
+                value={userMessage}
+                onChange={(e) => setUserMessage(e.target.value)}
+                className="min-h-[200px] resize-none"
               />
             </div>
 
@@ -207,19 +134,19 @@ export default function PromptAgent() {
             </div>
 
             <Button
-              onClick={handleRun}
-              disabled={isRunning || !selectedPromptId}
+              onClick={() => startChat.mutate()}
+              disabled={startChat.isPending || !selectedPromptId || !userMessage.trim()}
               className="w-full bg-gradient-to-r from-primary to-primary-glow shadow-glow transition-all hover:shadow-lg"
             >
-              {isRunning ? (
+              {startChat.isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Running...
+                  Starting Chat...
                 </>
               ) : (
                 <>
-                  <Sparkles className="mr-2 h-4 w-4" />
-                  Run Prompt
+                  <MessageSquare className="mr-2 h-4 w-4" />
+                  Start Chat
                 </>
               )}
             </Button>
@@ -228,31 +155,22 @@ export default function PromptAgent() {
 
         <Card className="shadow-md transition-shadow hover:shadow-lg">
           <CardHeader>
-            <CardTitle>Result</CardTitle>
-            <CardDescription>AI-generated output</CardDescription>
+            <CardTitle>How It Works</CardTitle>
+            <CardDescription>New chat-based interaction</CardDescription>
           </CardHeader>
           <CardContent>
-            {result ? (
-              <div className="space-y-4">
-                <div className="rounded-lg border bg-muted/50 p-4">
-                  <pre className="whitespace-pre-wrap text-sm">{result}</pre>
-                </div>
-                <div className="flex gap-2">
-                  <Button onClick={handleCopy} variant="outline" className="flex-1">
-                    <Copy className="mr-2 h-4 w-4" />
-                    Copy
-                  </Button>
-                  <Button onClick={handleDownload} variant="outline" className="flex-1">
-                    <Download className="mr-2 h-4 w-4" />
-                    Download
-                  </Button>
+            <div className="flex h-[400px] items-center justify-center rounded-lg border border-dashed bg-muted/30">
+              <div className="space-y-4 text-center px-6">
+                <MessageSquare className="h-16 w-16 mx-auto text-muted-foreground opacity-50" />
+                <div className="space-y-2">
+                  <h3 className="font-semibold">Start a Conversation</h3>
+                  <p className="text-sm text-muted-foreground max-w-md">
+                    Select a prompt, type your message, and click "Start Chat" to begin an interactive conversation with AI. 
+                    You can continue the conversation in the chat interface.
+                  </p>
                 </div>
               </div>
-            ) : (
-              <div className="flex h-[400px] items-center justify-center rounded-lg border border-dashed">
-                <p className="text-muted-foreground">Run a prompt to see results</p>
-              </div>
-            )}
+            </div>
           </CardContent>
         </Card>
       </div>

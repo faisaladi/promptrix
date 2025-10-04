@@ -1,4 +1,4 @@
-import { Library, Sparkles, Settings, LogOut } from "lucide-react";
+import { Library, Sparkles, Settings, LogOut, MessageSquare } from "lucide-react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -14,10 +14,11 @@ import {
   SidebarHeader,
   SidebarFooter,
 } from "@/components/ui/sidebar";
+import { ConversationsList } from "./ConversationsList";
 
 const menuItems = [
   {
-    title: "Prompt Agent",
+    title: "New Chat",
     url: "/",
     icon: Sparkles,
   },
@@ -25,6 +26,11 @@ const menuItems = [
     title: "Prompt Library",
     url: "/library",
     icon: Library,
+  },
+  {
+    title: "History",
+    url: "/history",
+    icon: MessageSquare,
   },
 ];
 
@@ -81,6 +87,15 @@ export function AppSidebar() {
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-xs uppercase tracking-wider text-muted-foreground">
+            Recent Chats
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <ConversationsList />
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>

@@ -8,6 +8,8 @@ import PromptAgent from "./pages/PromptAgent";
 import PromptLibrary from "./pages/PromptLibrary";
 import Auth from "./pages/Auth";
 import Settings from "./pages/Settings";
+import ChatInterface from "./pages/ChatInterface";
+import ChatHistory from "./pages/ChatHistory";
 import NotFound from "./pages/NotFound";
 import { useEffect, useState } from "react";
 import { supabase } from "./integrations/supabase/client";
@@ -67,6 +69,8 @@ const App = () => {
             <Routes>
               <Route path="/" element={<PromptAgent />} />
               <Route path="/library" element={<PromptLibrary />} />
+              <Route path="/chat/:conversationId" element={<ChatInterface />} />
+              <Route path="/history" element={<ChatHistory />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
