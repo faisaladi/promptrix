@@ -7,6 +7,7 @@ import { Layout } from "./components/Layout";
 import PromptAgent from "./pages/PromptAgent";
 import PromptLibrary from "./pages/PromptLibrary";
 import Auth from "./pages/Auth";
+import ResetPassword from "./pages/ResetPassword";
 import Settings from "./pages/Settings";
 import ChatInterface from "./pages/ChatInterface";
 import ChatHistory from "./pages/ChatHistory";
@@ -51,6 +52,7 @@ const App = () => {
           <Sonner />
           <BrowserRouter>
             <Routes>
+              <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="*" element={<Auth />} />
             </Routes>
           </BrowserRouter>
