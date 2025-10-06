@@ -134,6 +134,62 @@ export type Database = {
           },
         ]
       }
+      organization_members: {
+        Row: {
+          created_at: string
+          id: string
+          organization_id: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          organization_id: string
+          role?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          organization_id?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_members_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organizations: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          owner_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          owner_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          owner_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -167,6 +223,7 @@ export type Database = {
           description: string | null
           id: string
           is_active: boolean
+          organization_id: string | null
           prompt_template: string
           tags: string[] | null
           title: string
@@ -179,6 +236,7 @@ export type Database = {
           description?: string | null
           id?: string
           is_active?: boolean
+          organization_id?: string | null
           prompt_template: string
           tags?: string[] | null
           title: string
@@ -191,6 +249,7 @@ export type Database = {
           description?: string | null
           id?: string
           is_active?: boolean
+          organization_id?: string | null
           prompt_template?: string
           tags?: string[] | null
           title?: string
@@ -198,7 +257,15 @@ export type Database = {
           use_case?: Database["public"]["Enums"]["use_case_type"]
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "prompts_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
