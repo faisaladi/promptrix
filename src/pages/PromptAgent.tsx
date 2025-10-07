@@ -14,6 +14,7 @@ export default function PromptAgent() {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [selectedPromptId, setSelectedPromptId] = useState<string>("");
+  const [selectedVersionId, setSelectedVersionId] = useState<string>("");
   const [userMessage, setUserMessage] = useState("");
   const [selectedModel, setSelectedModel] = useState("google/gemini-2.5-flash");
 
@@ -33,6 +34,21 @@ export default function PromptAgent() {
 
   const selectedPrompt = prompts?.find(p => p.id === selectedPromptId);
 
+  const { data: versions } = useQuery({
+    queryKey: ["prompt-versions", selectedPromptId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("prompt_versions")
+        .select("*")
+        .eq("prompt_id", selectedPromptId)
+        .order("version_number", { ascending: false });
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!selectedPromptId,
+  });
+
   const startChat = useMutation({
     mutationFn: async () => {
       if (!selectedPromptId || !userMessage.trim()) {
@@ -42,6 +58,7 @@ export default function PromptAgent() {
       const { data, error } = await supabase.functions.invoke("chat-session", {
         body: {
           promptId: selectedPromptId,
+          promptVersionId: selectedVersionId || undefined,
           userMessage,
           model: selectedModel,
         },
@@ -83,7 +100,13 @@ export default function PromptAgent() {
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="prompt">Select Prompt</Label>
-              <Select value={selectedPromptId} onValueChange={setSelectedPromptId}>
+              <Select 
+                value={selectedPromptId} 
+                onValueChange={(value) => {
+                  setSelectedPromptId(value);
+                  setSelectedVersionId("");
+                }}
+              >
                 <SelectTrigger id="prompt">
                   <SelectValue placeholder="Choose a prompt" />
                 </SelectTrigger>
@@ -105,6 +128,25 @@ export default function PromptAgent() {
                 <p className="text-sm text-muted-foreground">{selectedPrompt.description}</p>
               )}
             </div>
+
+            {selectedPromptId && versions && versions.length > 0 && (
+              <div className="space-y-2">
+                <Label htmlFor="version">Prompt Version</Label>
+                <Select value={selectedVersionId} onValueChange={setSelectedVersionId}>
+                  <SelectTrigger id="version">
+                    <SelectValue placeholder="Live version (default)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {versions.map((version) => (
+                      <SelectItem key={version.id} value={version.id}>
+                        v{version.version_number} - {version.title}
+                        {version.is_live && " (Live)"}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="message">Start your conversation...</Label>

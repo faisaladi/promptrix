@@ -27,7 +27,7 @@ serve(async (req) => {
       });
     }
 
-    const { conversationId, promptId, userMessage, model = 'google/gemini-2.5-flash' } = await req.json();
+    const { conversationId, promptId, promptVersionId, userMessage, model = 'google/gemini-2.5-flash' } = await req.json();
 
     let conversation;
     let messages = [];
@@ -67,15 +67,29 @@ serve(async (req) => {
         });
       }
 
-      // Fetch prompt template
-      const { data: prompt } = await supabaseClient
-        .from('prompts')
-        .select('*')
-        .eq('id', promptId)
-        .single();
+      // Fetch prompt version
+      let promptVersion;
+      if (promptVersionId) {
+        // Use specific version
+        const { data: version } = await supabaseClient
+          .from('prompt_versions')
+          .select('*')
+          .eq('id', promptVersionId)
+          .single();
+        promptVersion = version;
+      } else {
+        // Use live version
+        const { data: version } = await supabaseClient
+          .from('prompt_versions')
+          .select('*')
+          .eq('prompt_id', promptId)
+          .eq('is_live', true)
+          .single();
+        promptVersion = version;
+      }
 
-      if (!prompt) {
-        return new Response(JSON.stringify({ error: 'Prompt not found' }), {
+      if (!promptVersion) {
+        return new Response(JSON.stringify({ error: 'Prompt version not found' }), {
           status: 404,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
@@ -84,12 +98,13 @@ serve(async (req) => {
       // Generate title from first 50 chars of user message
       const title = userMessage.substring(0, 50) + (userMessage.length > 50 ? '...' : '');
 
-      // Create conversation
+      // Create conversation with version tracking
       const { data: newConversation, error: createError } = await supabaseClient
         .from('conversations')
         .insert({
           user_id: user.id,
           prompt_id: promptId,
+          prompt_version_id: promptVersion.id,
           title,
         })
         .select()
@@ -105,13 +120,13 @@ serve(async (req) => {
 
       conversation = newConversation;
 
-      // Add system message with prompt template
+      // Add system message with prompt version template
       const { error: systemMsgError } = await supabaseClient
         .from('messages')
         .insert({
           conversation_id: conversation.id,
           role: 'system',
-          content: prompt.prompt_template,
+          content: promptVersion.prompt_template,
           model,
         });
 

@@ -62,6 +62,7 @@ export type Database = {
           id: string
           is_deleted: boolean
           prompt_id: string | null
+          prompt_version_id: string | null
           title: string
           updated_at: string
           user_id: string
@@ -72,6 +73,7 @@ export type Database = {
           id?: string
           is_deleted?: boolean
           prompt_id?: string | null
+          prompt_version_id?: string | null
           title: string
           updated_at?: string
           user_id: string
@@ -82,6 +84,7 @@ export type Database = {
           id?: string
           is_deleted?: boolean
           prompt_id?: string | null
+          prompt_version_id?: string | null
           title?: string
           updated_at?: string
           user_id?: string
@@ -92,6 +95,13 @@ export type Database = {
             columns: ["prompt_id"]
             isOneToOne: false
             referencedRelation: "prompts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversations_prompt_version_id_fkey"
+            columns: ["prompt_version_id"]
+            isOneToOne: false
+            referencedRelation: "prompt_versions"
             referencedColumns: ["id"]
           },
         ]
@@ -216,6 +226,53 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      prompt_versions: {
+        Row: {
+          change_message: string | null
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          is_live: boolean
+          prompt_id: string
+          prompt_template: string
+          title: string
+          version_number: number
+        }
+        Insert: {
+          change_message?: string | null
+          created_at?: string
+          created_by: string
+          description?: string | null
+          id?: string
+          is_live?: boolean
+          prompt_id: string
+          prompt_template: string
+          title: string
+          version_number: number
+        }
+        Update: {
+          change_message?: string | null
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          is_live?: boolean
+          prompt_id?: string
+          prompt_template?: string
+          title?: string
+          version_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prompt_versions_prompt_id_fkey"
+            columns: ["prompt_id"]
+            isOneToOne: false
+            referencedRelation: "prompts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       prompts: {
         Row: {

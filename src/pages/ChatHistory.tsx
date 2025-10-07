@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { MessageSquare, Trash2, Search } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -19,7 +20,11 @@ export default function ChatHistory() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("conversations")
-        .select("*, prompts(title)")
+        .select(`
+          *,
+          prompts (title),
+          prompt_versions (version_number, title)
+        `)
         .eq("is_deleted", false)
         .order("updated_at", { ascending: false });
 
@@ -98,9 +103,16 @@ export default function ChatHistory() {
                     <CardTitle className="text-base truncate">
                       {conversation.title}
                     </CardTitle>
-                    <CardDescription className="text-xs">
-                      {conversation.prompts?.title || "Unknown prompt"}
-                    </CardDescription>
+                    <div className="flex items-center gap-2 mt-1">
+                      <CardDescription className="text-xs">
+                        {conversation.prompts?.title || "Unknown prompt"}
+                      </CardDescription>
+                      {conversation.prompt_versions && (
+                        <Badge variant="outline" className="text-xs">
+                          v{conversation.prompt_versions.version_number}
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                   <Button
                     variant="ghost"
