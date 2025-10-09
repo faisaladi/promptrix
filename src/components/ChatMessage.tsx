@@ -2,6 +2,7 @@ import { Copy, Check } from "lucide-react";
 import { useState } from "react";
 import { Button } from "./ui/button";
 import { cn } from "@/lib/utils";
+import ReactMarkdown from "react-markdown";
 
 interface ChatMessageProps {
   role: "user" | "assistant" | "system";
@@ -32,7 +33,21 @@ export const ChatMessage = ({ role, content, timestamp }: ChatMessageProps) => {
             : "bg-muted text-foreground"
         )}
       >
-        <div className="whitespace-pre-wrap break-words">{content}</div>
+        <div className="prose prose-sm max-w-none dark:prose-invert">
+          <ReactMarkdown
+            components={{
+              p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+              code: ({ children }) => (
+                <code className="bg-muted px-1.5 py-0.5 rounded text-sm">{children}</code>
+              ),
+              pre: ({ children }) => (
+                <pre className="bg-muted p-3 rounded-lg overflow-x-auto my-2">{children}</pre>
+              ),
+            }}
+          >
+            {content}
+          </ReactMarkdown>
+        </div>
         {timestamp && (
           <div className={cn("text-xs opacity-70", isUser && "text-right")}>
             {new Date(timestamp).toLocaleTimeString([], {
