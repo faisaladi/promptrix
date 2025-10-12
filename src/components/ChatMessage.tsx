@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Button } from "./ui/button";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 interface ChatMessageProps {
   role: "user" | "assistant" | "system";
@@ -35,6 +36,7 @@ export const ChatMessage = ({ role, content, timestamp }: ChatMessageProps) => {
       >
         <div className="space-y-3">
           <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
             components={{
               p: ({ children }) => <p className="leading-relaxed">{children}</p>,
               h1: ({ children }) => <h1 className="text-xl font-bold mb-2">{children}</h1>,
@@ -51,6 +53,32 @@ export const ChatMessage = ({ role, content, timestamp }: ChatMessageProps) => {
               ),
               strong: ({ children }) => <strong className="font-bold">{children}</strong>,
               em: ({ children }) => <em className="italic">{children}</em>,
+              table: ({ children }) => (
+                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700 my-4">
+                  {children}
+                </table>
+              ),
+              thead: ({ children }) => (
+                <thead className="bg-gray-50 dark:bg-gray-800">
+                  {children}
+                </thead>
+              ),
+              tbody: ({ children }) => (
+                <tbody className="bg-white divide-y divide-gray-200 dark:bg-gray-900 dark:divide-gray-700">
+                  {children}
+                </tbody>
+              ),
+              tr: ({ children }) => <tr>{children}</tr>,
+              th: ({ children }) => (
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  {children}
+                </th>
+              ),
+              td: ({ children }) => (
+                <td className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">
+                  {children}
+                </td>
+              ),
             }}
           >
             {content}
