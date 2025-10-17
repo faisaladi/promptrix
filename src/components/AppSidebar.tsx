@@ -1,5 +1,5 @@
 import { Library, Settings, LogOut, MessageSquare } from "lucide-react";
-import promptrixLogo from "@/assets/promptrix-logo.png";
+// import promptrixLogo from "@/assets/promptrix-logo.png";
 import { NavLink, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -16,6 +16,7 @@ import {
   SidebarFooter,
 } from "@/components/ui/sidebar";
 import { ConversationsList } from "./ConversationsList";
+import LogoHorizontal from "@/assets/Logo Horizontal.png";
 
 const menuItems = [
   {
@@ -53,10 +54,9 @@ export function AppSidebar() {
 
   return (
     <Sidebar className="border-r border-sidebar-border">
-      <SidebarHeader className="border-b border-sidebar-border p-6">
-        <div className="flex items-center gap-3">
-          <img src={promptrixLogo} alt="Promptrix" className="h-10 w-10" />
-          <span className="text-xl font-bold text-sidebar-foreground">Promptrix</span>
+      <SidebarHeader className="border-b border-sidebar-border p-6 overflow-hidden">
+        <div className="flex items-center">
+          <img src={LogoHorizontal} alt="Promptrix" className="h-8 w-auto max-w-[160px] object-contain" />
         </div>
       </SidebarHeader>
       

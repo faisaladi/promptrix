@@ -1,15 +1,15 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowRight, ExternalLink } from "lucide-react";
+import LogoHorizontal from "@/assets/Logo Horizontal.png";
 
 const Index = () => {
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-secondary/20">
       {/* Header */}
-      <header className="container flex items-center justify-between py-6">
-        <div className="flex items-center gap-3">
-          <img src="/promptrix_logo.svg" alt="Promptrix logo" className="h-8 w-8" />
-          <span className="font-title text-xl tracking-tight">Promptrix</span>
+      <header className="container flex items-center justify-between py-6 overflow-hidden">
+        <div className="flex items-center">
+          <img src={LogoHorizontal} alt="Promptrix" className="h-8 w-auto max-w-[180px] object-contain" />
         </div>
         <nav className="flex items-center gap-3">
           <a href="#features" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
@@ -146,7 +146,7 @@ const Index = () => {
       {/* Footer */}
       <footer className="container border-t py-8 text-sm text-muted-foreground">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <span>© Promptrix</span>
+          <span>© PROMPTRIX</span>
           <nav className="flex items-center gap-4">
             <a href="/docs" className="hover:text-foreground">Docs</a>
             <a href="/privacy" className="hover:text-foreground">Privacy</a>
