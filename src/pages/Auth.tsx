@@ -54,10 +54,11 @@ export default function Auth() {
         });
         setIsLogin(true);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
       toast({
         title: "Error",
-        description: error.message,
+        description: message,
         variant: "destructive",
       });
     } finally {
@@ -166,7 +167,7 @@ export default function Auth() {
               <button
                 type="button"
                 onClick={() => setIsForgotPassword(false)}
-                className="text-muted-foreground hover:text-foreground hover:underline"
+                className="mt-2 block w-full text-muted-foreground hover:text-foreground hover:underline"
               >
                 Back to sign in
               </button>

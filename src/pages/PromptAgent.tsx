@@ -198,7 +198,7 @@ export default function PromptAgent() {
         <Card className="shadow-md transition-shadow hover:shadow-lg">
           <CardHeader>
             <CardTitle>How It Works</CardTitle>
-            <CardDescription>New chat-based interaction</CardDescription>
+            <CardDescription>Chat-based interaction</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex h-[400px] items-center justify-center rounded-lg border border-dashed bg-muted/30">
