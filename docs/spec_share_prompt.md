@@ -1,3 +1,5 @@
+Status : Not Developed
+
 # Prompt Sharing Feature Spec
 
 ## Goals

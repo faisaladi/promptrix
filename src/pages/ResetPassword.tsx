@@ -88,7 +88,7 @@ export default function ResetPassword() {
 
       // Redirect to login page
       setTimeout(() => {
-        navigate("/auth");
+        navigate("/signin");
       }, 1500);
     } catch (error: any) {
       toast({
@@ -126,7 +126,7 @@ export default function ResetPassword() {
           </CardHeader>
           <CardContent>
             <Button
-              onClick={() => navigate("/auth")}
+              onClick={() => navigate("/signin")}
               className="w-full bg-gradient-to-r from-primary to-primary-glow shadow-glow"
             >
               Back to Sign In

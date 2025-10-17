@@ -12,8 +12,11 @@ import Settings from "./pages/Settings";
 import ChatInterface from "./pages/ChatInterface";
 import ChatHistory from "./pages/ChatHistory";
 import NotFound from "./pages/NotFound";
+import Index from "./pages/Index";
 import { useEffect, useState } from "react";
 import { supabase } from "./integrations/supabase/client";
+import Privacy from "./pages/Privacy";
+import Terms from "./pages/Terms";
 
 const queryClient = new QueryClient();
 
@@ -55,7 +58,11 @@ const App = () => {
           <BrowserRouter>
             <Routes>
               <Route path="/reset-password" element={<ResetPassword />} />
-              <Route path="*" element={<Auth />} />
+              <Route path="/signin" element={<Auth />} />
+              <Route path="/privacy" element={<Privacy />} />
+              <Route path="/terms" element={<Terms />} />
+              <Route path="/" element={<Index />} />
+              <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
         </TooltipProvider>
@@ -76,6 +83,8 @@ const App = () => {
               <Route path="/chat/:conversationId" element={<ChatInterface />} />
               <Route path="/history" element={<ChatHistory />} />
               <Route path="/settings" element={<Settings />} />
+              <Route path="/privacy" element={<Privacy />} />
+              <Route path="/terms" element={<Terms />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Layout>
