@@ -36,18 +36,35 @@ export default function Auth() {
         setIsForgotPassword(false);
         setIsLogin(true);
       } else if (isLogin) {
-        const { error } = await supabase.auth.signInWithPassword({
+        const { data, error } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
         if (error) throw error;
+        const user = data?.user;
+        if (user) {
+          window.mixpanel?.identify(user.id);
+          window.mixpanel?.track("Signed In", { email: user.email });
+          window.mixpanel?.people?.set({ $email: user.email });
+          window.mixpanel?.register({ user_id: user.id, email: user.email });
+        } else {
+          window.mixpanel?.track("Signed In");
+        }
         navigate("/");
       } else {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
         });
         if (error) throw error;
+        const user = data?.user;
+        if (user) {
+          window.mixpanel?.identify(user.id);
+          window.mixpanel?.track("Signed Up", { email: user.email });
+          window.mixpanel?.people?.set({ $email: user.email });
+        } else {
+          window.mixpanel?.track("Signed Up", { email });
+        }
         toast({
           title: "Success",
           description: "Account created! You can now log in.",

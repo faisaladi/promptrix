@@ -42,6 +42,8 @@ export function AppSidebar() {
     try {
       await supabase.auth.signOut();
       toast.success("Logged out successfully");
+      window.mixpanel?.track("Signed Out");
+      window.mixpanel?.reset();
       navigate("/");
     } catch (error) {
       console.error("Error logging out:", error);
