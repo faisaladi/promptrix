@@ -18,13 +18,16 @@ This document outlines the requirements for new features and improvements for th
 ### 1.2. Direct Link/Email Sharing
 - **Description**: Allow users to share a specific prompt with another individual via a unique link.
 - **Mechanism**:
-    - A "Share" button on a prompt generates a unique, private URL.
-    - When another user opens this link, the prompt is added to their library, possibly under a "Shared with me" section.
+    - options:
+
+1. Share to public, so public can view the Live version of the prompt and copy paste the content.
+
+2. Share only to invited users, this can be view or edit access.
 - **Implementation Notes**:
     - Simpler to implement than full organization management.
     - Requires a new table to manage permissions for shared links.
 
-## 2. Chat History and Management
+## 2. Chat History and Management (DONE)
 
 ### 2.1. View Chat History
 - **Description**: Users must be able to view a history of their past prompt interactions.
@@ -41,7 +44,7 @@ This document outlines the requirements for new features and improvements for th
 - **Implementation Notes**:
     - Allows for future features like a "Trash" folder or an "Undo" option.
 
-## 3. "Run Prompt" as a Chat-Based Interaction
+## 3. "Run Prompt" as a Chat-Based Interaction (DONE)
 
 ### 3.1. Problem Statement
 - The current "Run prompt" functionality is a one-off interaction.
