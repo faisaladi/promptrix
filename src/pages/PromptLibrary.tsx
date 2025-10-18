@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -7,12 +7,16 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Library, Pencil, Trash2 } from "lucide-react";
 import { PromptDialog } from "@/components/PromptDialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuCheckboxItem } from "@/components/ui/dropdown-menu";
 
 export default function PromptLibrary() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingPrompt, setEditingPrompt] = useState<any>(null);
+  const [selectedUseCase, setSelectedUseCase] = useState<string>("");
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
 
   const { data: prompts, isLoading } = useQuery({
     queryKey: ["prompts"],
@@ -64,6 +68,38 @@ export default function PromptLibrary() {
     setEditingPrompt(null);
   };
 
+  const availableUseCases = useMemo(() => {
+    return Array.from(new Set((prompts || []).map((p: any) => (p.use_case || "").trim()).filter(Boolean)));
+  }, [prompts]);
+
+  const availableTags = useMemo(() => {
+    return Array.from(new Set((prompts || []).flatMap((p: any) => Array.isArray(p.tags) ? p.tags : []).filter(Boolean)));
+  }, [prompts]);
+
+  const filteredPrompts = useMemo(() => {
+    const list = prompts || [];
+    return list.filter((p: any) => {
+      const useCaseOk = selectedUseCase ? p.use_case === selectedUseCase : true;
+      const tagsOk = selectedTags.length > 0 ? selectedTags.every((t) => Array.isArray(p.tags) && p.tags.includes(t)) : true;
+      return useCaseOk && tagsOk;
+    });
+  }, [prompts, selectedUseCase, selectedTags]);
+
+  const toggleTag = (tag: string, checked: boolean) => {
+    setSelectedTags((prev) => {
+      if (checked) {
+        return prev.includes(tag) ? prev : [...prev, tag];
+      } else {
+        return prev.filter((t) => t !== tag);
+      }
+    });
+  };
+
+  const clearFilters = () => {
+    setSelectedUseCase("");
+    setSelectedTags([]);
+  };
+
   return (
     <div className="container max-w-6xl py-8">
       <div className="mb-8 flex items-center justify-between">
@@ -84,6 +120,54 @@ export default function PromptLibrary() {
           New Prompt
         </Button>
       </div>
+
+      {/* Filters */}
+      {!isLoading && (
+        <div className="mb-6 flex flex-wrap items-center gap-3">
+          <Select value={selectedUseCase} onValueChange={(value) => setSelectedUseCase(value === "all" ? "" : value)}>
+            <SelectTrigger className="w-[200px]">
+              <SelectValue placeholder="Filter by Use Case" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All</SelectItem>
+              {availableUseCases.map((uc) => (
+                <SelectItem key={uc} value={uc} className="capitalize">
+                  {uc}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline">
+                Tags {selectedTags.length > 0 ? `(${selectedTags.length})` : ""}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-56">
+              {availableTags.length === 0 ? (
+                <div className="px-2 py-1 text-sm text-muted-foreground">No tags</div>
+              ) : (
+                availableTags.map((tag) => (
+                  <DropdownMenuCheckboxItem
+                    key={tag}
+                    checked={selectedTags.includes(tag)}
+                    onCheckedChange={(checked) => toggleTag(tag, !!checked)}
+                  >
+                    {tag}
+                  </DropdownMenuCheckboxItem>
+                ))
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {(selectedUseCase || selectedTags.length > 0) && (
+            <Button variant="ghost" size="sm" onClick={clearFilters}>
+              Clear Filters
+            </Button>
+          )}
+        </div>
+      )}
 
       {isLoading ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -112,7 +196,7 @@ export default function PromptLibrary() {
         </Card>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {prompts?.map((prompt) => (
+          {filteredPrompts.map((prompt: any) => (
             <Card key={prompt.id} className="group relative shadow-md transition-all hover:shadow-lg">
               <CardHeader>
                 <div className="flex items-start justify-between">
