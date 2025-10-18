@@ -51,11 +51,17 @@ export default function ChatInterface() {
   // Send message mutation
   const sendMessage = useMutation({
     mutationFn: async (userMessage: string) => {
+      // Use the conversation's model (from system message or latest message), fallback to a safe default
+      const modelToUse =
+        messages?.find((m) => m.role === "system" && m.model)?.model ||
+        [...(messages ?? [])].reverse().find((m) => m.model)?.model ||
+        "openai/gpt-4o-mini";
+
       const { data, error } = await supabase.functions.invoke("chat-session", {
         body: {
           conversationId,
           userMessage,
-          model: "google/gemini-2.5-flash",
+          model: modelToUse,
         },
       });
 

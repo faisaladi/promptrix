@@ -127,3 +127,51 @@
 - Edge functions deployed; secrets set; JWT verified.
 - `.env` updated; client reads new values; build passes.
 - End-to-end testing complete; rollback window defined.
+
+FROM SUPABASE CS:
+To migrate your Lovable Cloud project to another Supabase instance, follow these steps:
+
+Prerequisites
+Create a new Supabase project where you want to migrate your data
+Note that user migration is not currently possible, so plan this before your app has real users you don't want to lose
+Migration Steps
+1. Update Configuration
+In your Lovable project:
+Go to Code and locate the supabase/config.toml file
+Replace your Lovable Cloud project ID with your new Supabase project ID
+Save the changes
+2. Run Database Migrations
+Your Lovable Cloud project includes SQL migration files in the supabase/migrations/ folder:
+Run them in chronological order based on the timestamp in the filename (earliest to latest)
+For each migration file:
+Copy the entire SQL content
+Paste it into the SQL editor in your new Supabase project
+Run and wait for success message
+If a migration fails, check the migration order, table dependencies, and SQL syntax errors
+
+3. Export and Import Data
+Export from Lovable Cloud:
+Go to Cloud → Database → Table
+Click Export CSV for each table with data
+Save the files
+Import to new Supabase:
+Go to Table Editor in your new Supabase project
+For each table, click Insert → Import data from CSV
+Map columns correctly and click Import data
+
+4. Migrate Storage Files
+In your Lovable project, go to Cloud → Storage
+Download files from your storage buckets
+In your new Supabase project, go to Storage and upload files to corresponding buckets
+
+5. Reconfigure Authentication
+If your project uses authentication:
+In your new Supabase project, go to Authentication → Sign In / Providers
+Enable and configure each provider you were using
+Update redirect URLs in your OAuth app settings (Google Console, GitHub, etc.) to use your new Supabase project URL
+
+Important Notes
+This migration is possible because Lovable wants you to stay by choice, not necessity
+User data cannot be migrated at this time
+Plan carefully if you have existing users to avoid data loss
+The process requires some technical knowledge, but following these steps in order should successfully migrate your project to your new Supabase instance.

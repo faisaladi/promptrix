@@ -16,9 +16,9 @@ serve(async (req) => {
     
     console.log('Running prompt with model:', model);
     
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY not configured');
+    const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY') || Deno.env.get('LOVABLE_API_KEY');
+    if (!OPENROUTER_API_KEY) {
+      throw new Error('AI service not configured');
     }
 
     // Construct the full prompt
@@ -34,20 +34,38 @@ serve(async (req) => {
       fullPrompt += `\n\nAdditional instructions: ${additionalInstruction}`;
     }
 
-    console.log('Sending request to AI gateway');
+    console.log('Sending request to OpenRouter');
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const OPENROUTER_URL = Deno.env.get('OPENROUTER_BASE_URL') || 'https://openrouter.ai/api/v1';
+    const headers: Record<string, string> = {
+      'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+      'Content-Type': 'application/json',
+    };
+    const referer = Deno.env.get('VITE_APP_URL') || Deno.env.get('APP_URL');
+    if (referer) headers['HTTP-Referer'] = referer;
+    headers['X-Title'] = 'Promptrix Run Prompt';
+
+    const modelSlugMap: Record<string, string> = {
+      'google/gemini-2.5-flash': 'google/gemini-flash-1.5',
+      'google/gemini-2.5-flash-lite': 'google/gemini-flash-1.5',
+      'google/gemini-2.5-pro': 'google/gemini-2.5-pro',
+      'openai/gpt-5': 'openai/gpt-4o',
+      'openai/gpt-5-mini': 'openai/gpt-4o-mini',
+    };
+    const resolvedModel = (() => {
+       const candidate = model || 'openai/gpt-4o-mini';
+       return modelSlugMap[candidate] || candidate;
+     })();
+
+    const response = await fetch(`${OPENROUTER_URL}/chat/completions`, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify({
-        model: model || 'google/gemini-2.5-flash',
+        model: resolvedModel,
         messages: [
-          { 
-            role: 'user', 
-            content: fullPrompt 
+          {
+            role: 'user',
+            content: fullPrompt
           }
         ],
         temperature: 0.7,
@@ -56,7 +74,7 @@ serve(async (req) => {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('AI Gateway error:', response.status, errorText);
+      console.error('OpenRouter error:', response.status, errorText);
       
       if (response.status === 429) {
         return new Response(
@@ -72,7 +90,7 @@ serve(async (req) => {
         );
       }
 
-      throw new Error(`AI Gateway error: ${response.status}`);
+      throw new Error(`OpenRouter error: ${response.status}`);
     }
 
     const data = await response.json();

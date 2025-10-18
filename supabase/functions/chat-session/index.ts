@@ -27,7 +27,7 @@ serve(async (req) => {
       });
     }
 
-    const { conversationId, promptId, promptVersionId, userMessage, model = 'google/gemini-2.5-flash' } = await req.json();
+    const { conversationId, promptId, promptVersionId, userMessage, model = 'openai/gpt-4o-mini' } = await req.json();
 
     let conversation;
     let messages = [];
@@ -166,30 +166,47 @@ serve(async (req) => {
       content: msg.content,
     }));
 
-    // Call AI gateway
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
+    // Call AI service (OpenRouter preferred; fallback Lovable if present)
+    const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY') || Deno.env.get('LOVABLE_API_KEY');
+    if (!OPENROUTER_API_KEY) {
       return new Response(JSON.stringify({ error: 'AI service not configured' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const OPENROUTER_URL = Deno.env.get('OPENROUTER_BASE_URL') || 'https://openrouter.ai/api/v1';
+    const headers: Record<string, string> = {
+      'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+      'Content-Type': 'application/json',
+    };
+    const referer = Deno.env.get('VITE_APP_URL') || Deno.env.get('APP_URL');
+    if (referer) headers['HTTP-Referer'] = referer;
+    headers['X-Title'] = 'Promptrix Chat';
+
+    const resolvedModel = (() => {
+      const map: Record<string, string> = {
+        'google/gemini-2.5-flash': 'google/gemini-flash-1.5',
+        'google/gemini-2.5-flash-lite': 'google/gemini-flash-1.5',
+        'google/gemini-2.5-pro': 'google/gemini-2.5-pro',
+        'openai/gpt-5': 'openai/gpt-4o',
+        'openai/gpt-5-mini': 'openai/gpt-4o-mini',
+      };
+      return map[model] || model;
+    })();
+
+    const aiResponse = await fetch(`${OPENROUTER_URL}/chat/completions`, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify({
-        model,
+        model: resolvedModel,
         messages: aiMessages,
       }),
     });
 
     if (!aiResponse.ok) {
       const errorText = await aiResponse.text();
-      console.error('AI gateway error:', aiResponse.status, errorText);
+      console.error('OpenRouter error:', aiResponse.status, errorText);
       
       if (aiResponse.status === 429) {
         return new Response(JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }), {

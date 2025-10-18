@@ -16,7 +16,7 @@ export default function PromptAgent() {
   const [selectedPromptId, setSelectedPromptId] = useState<string>("");
   const [selectedVersionId, setSelectedVersionId] = useState<string>("");
   const [userMessage, setUserMessage] = useState("");
-  const [selectedModel, setSelectedModel] = useState("google/gemini-2.5-flash");
+  const [selectedModel, setSelectedModel] = useState("openai/gpt-4o-mini");
 
   const { data: prompts, isLoading } = useQuery({
     queryKey: ["active-prompts"],
@@ -166,11 +166,12 @@ export default function PromptAgent() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="google/gemini-2.5-flash">Gemini 2.5 Flash (Free)</SelectItem>
-                  <SelectItem value="google/gemini-2.5-pro">Gemini 2.5 Pro (Free)</SelectItem>
-                  <SelectItem value="google/gemini-2.5-flash-lite">Gemini 2.5 Flash Lite (Free)</SelectItem>
-                  <SelectItem value="openai/gpt-5">GPT-5</SelectItem>
-                  <SelectItem value="openai/gpt-5-mini">GPT-5 Mini</SelectItem>
+                  <SelectItem value="openai/gpt-4o-mini">OpenAI GPT-4o Mini</SelectItem>
+                  <SelectItem value="openai/gpt-4o">OpenAI GPT-4o</SelectItem>
+                  <SelectItem value="google/gemini-flash-1.5">Gemini Flash 1.5</SelectItem>
+                  <SelectItem value="google/gemini-pro-1.5">Gemini Pro 1.5</SelectItem>
+                  <SelectItem value="meta-llama/llama-3.1-8b-instruct:free">Llama 3.1 8B Instruct (Free)</SelectItem>
+                  <SelectItem value="qwen/qwen-2.5-7b-instruct:free">Qwen 2.5 7B Instruct (Free)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
