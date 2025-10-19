@@ -27,7 +27,7 @@ serve(async (req) => {
       });
     }
 
-    const { conversationId, promptId, promptVersionId, userMessage, model = 'openai/gpt-4o-mini' } = await req.json();
+    const { conversationId, promptId, promptVersionId, userMessage, model = 'openai/gpt-4o-mini', stream = false } = await req.json();
 
     let conversation;
     let messages = [];
@@ -195,69 +195,166 @@ serve(async (req) => {
       return map[model] || model;
     })();
 
-    const aiResponse = await fetch(`${OPENROUTER_URL}/chat/completions`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        model: resolvedModel,
-        messages: aiMessages,
-      }),
-    });
+    if (stream) {
+      const aiResponse = await fetch(`${OPENROUTER_URL}/chat/completions`, {
+        method: 'POST',
+        headers: { ...headers, 'Accept': 'text/event-stream' },
+        body: JSON.stringify({
+          model: resolvedModel,
+          messages: aiMessages,
+          stream: true,
+        }),
+      });
 
-    if (!aiResponse.ok) {
-      const errorText = await aiResponse.text();
-      console.error('OpenRouter error:', aiResponse.status, errorText);
-      
-      if (aiResponse.status === 429) {
-        return new Response(JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }), {
-          status: 429,
+      if (!aiResponse.ok) {
+        const errorText = await aiResponse.text();
+        let errorJson: any;
+        try { errorJson = JSON.parse(errorText); } catch (_) {}
+        const message = errorJson?.error?.message || errorText;
+        const code = errorJson?.error?.code || aiResponse.status;
+
+        const sseError = new ReadableStream({
+          start(controller) {
+            const payload = { provider: 'OpenRouter', status: aiResponse.status, code, message, model: resolvedModel };
+            controller.enqueue(new TextEncoder().encode(`event: error\ndata: ${JSON.stringify(payload)}\n\n`));
+            controller.close();
+          }
+        });
+
+        return new Response(sseError, {
+          status: aiResponse.status,
+          headers: { ...corsHeaders, 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' },
+        });
+      }
+
+      const reader = aiResponse.body!.getReader();
+      const decoder = new TextDecoder();
+      let assistantMessage = '';
+
+      const streamResp = new ReadableStream({
+        async start(controller) {
+          controller.enqueue(new TextEncoder().encode(`event: start\ndata: {"conversationId":"${conversation.id}"}\n\n`));
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            const chunk = decoder.decode(value, { stream: true });
+
+            for (const line of chunk.split('\n')) {
+              if (!line.startsWith('data:')) continue;
+              const data = line.slice(5).trim();
+              if (!data || data === '[DONE]') continue;
+              try {
+                const parsed = JSON.parse(data);
+                const delta = parsed?.choices?.[0]?.delta?.content ?? parsed?.choices?.[0]?.message?.content ?? '';
+                if (delta) {
+                  assistantMessage += delta;
+                  controller.enqueue(new TextEncoder().encode(`event: token\ndata: ${JSON.stringify(delta)}\n\n`));
+                }
+              } catch {
+                controller.enqueue(new TextEncoder().encode(`event: raw\ndata: ${JSON.stringify(data)}\n\n`));
+              }
+            }
+          }
+
+          try {
+            await supabaseClient.from('messages').insert({
+              conversation_id: conversation.id,
+              role: 'assistant',
+              content: assistantMessage,
+              model,
+            });
+          } catch (err) {
+            console.error('Error saving assistant message (stream):', err);
+          }
+
+          controller.enqueue(new TextEncoder().encode(`event: done\ndata: {"message": ${JSON.stringify(assistantMessage)}}\n\n`));
+          controller.close();
+        }
+      });
+
+      return new Response(streamResp, {
+        headers: { ...corsHeaders, 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' },
+      });
+
+    } else {
+      const aiResponse = await fetch(`${OPENROUTER_URL}/chat/completions`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          model: resolvedModel,
+          messages: aiMessages,
+        }),
+      });
+
+      if (!aiResponse.ok) {
+        const errorText = await aiResponse.text();
+        console.error('OpenRouter error:', aiResponse.status, errorText);
+        
+        let errorJson: any;
+        try { errorJson = JSON.parse(errorText); } catch (_) {}
+        const message = errorJson?.error?.message || errorText;
+        const code = errorJson?.error?.code || aiResponse.status;
+
+        if (aiResponse.status === 429) {
+          return new Response(JSON.stringify({
+            error: 'Rate limit exceeded. Please try again later.',
+            details: { provider: 'OpenRouter', status: aiResponse.status, code, message, model: resolvedModel }
+          }), {
+            status: 429,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+        
+        if (aiResponse.status === 402) {
+          return new Response(JSON.stringify({
+            error: 'Payment required. Please add credits to your workspace.',
+            details: { provider: 'OpenRouter', status: aiResponse.status, code, message, model: resolvedModel }
+          }), {
+            status: 402,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        return new Response(JSON.stringify({
+          error: 'AI service error',
+          details: { provider: 'OpenRouter', status: aiResponse.status, code, message, model: resolvedModel }
+        }), {
+          status: aiResponse.status,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
-      
-      if (aiResponse.status === 402) {
-        return new Response(JSON.stringify({ error: 'Payment required. Please add credits to your workspace.' }), {
-          status: 402,
+
+      const aiData = await aiResponse.json();
+      const assistantMessage = aiData.choices?.[0]?.message?.content;
+
+      if (!assistantMessage) {
+        return new Response(JSON.stringify({ error: 'No response from AI' }), {
+          status: 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
 
-      return new Response(JSON.stringify({ error: 'AI service error' }), {
-        status: 500,
+      // Save assistant message
+      const { error: assistantMsgError } = await supabaseClient
+        .from('messages')
+        .insert({
+          conversation_id: conversation.id,
+          role: 'assistant',
+          content: assistantMessage,
+          model,
+        });
+
+      if (assistantMsgError) {
+        console.error('Error saving assistant message:', assistantMsgError);
+      }
+
+      return new Response(JSON.stringify({
+        conversationId: conversation.id,
+        message: assistantMessage,
+      }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-
-    const aiData = await aiResponse.json();
-    const assistantMessage = aiData.choices?.[0]?.message?.content;
-
-    if (!assistantMessage) {
-      return new Response(JSON.stringify({ error: 'No response from AI' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    // Save assistant message
-    const { error: assistantMsgError } = await supabaseClient
-      .from('messages')
-      .insert({
-        conversation_id: conversation.id,
-        role: 'assistant',
-        content: assistantMessage,
-        model,
-      });
-
-    if (assistantMsgError) {
-      console.error('Error saving assistant message:', assistantMsgError);
-    }
-
-    return new Response(JSON.stringify({
-      conversationId: conversation.id,
-      message: assistantMessage,
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
 
   } catch (error) {
     console.error('Error in chat-session function:', error);

@@ -9,14 +9,18 @@ import { Plus, Library, Pencil, Trash2 } from "lucide-react";
 import { PromptDialog } from "@/components/PromptDialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuCheckboxItem } from "@/components/ui/dropdown-menu";
+import { SharePromptDialog } from "@/components/SharePromptDialog";
+import type { Tables } from "@/integrations/supabase/types";
 
 export default function PromptLibrary() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingPrompt, setEditingPrompt] = useState<any>(null);
+  const [editingPrompt, setEditingPrompt] = useState<Tables<"prompts"> | null>(null);
   const [selectedUseCase, setSelectedUseCase] = useState<string>("");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [sharePrompt, setSharePrompt] = useState<Tables<"prompts"> | null>(null);
 
   const { data: prompts, isLoading } = useQuery({
     queryKey: ["prompts"],
@@ -25,9 +29,8 @@ export default function PromptLibrary() {
         .from("prompts")
         .select("*")
         .order("created_at", { ascending: false });
-      
       if (error) throw error;
-      return data;
+      return (data ?? []) as Tables<"prompts">[];
     },
   });
 
@@ -43,16 +46,17 @@ export default function PromptLibrary() {
         description: "Prompt deleted successfully",
       });
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
+      const message = error instanceof Error ? error.message : "Failed to delete prompt";
       toast({
         title: "Error",
-        description: error.message || "Failed to delete prompt",
+        description: message,
         variant: "destructive",
       });
     },
   });
 
-  const handleEdit = (prompt: any) => {
+  const handleEdit = (prompt: Tables<"prompts">) => {
     setEditingPrompt(prompt);
     setIsDialogOpen(true);
   };
@@ -69,16 +73,16 @@ export default function PromptLibrary() {
   };
 
   const availableUseCases = useMemo(() => {
-    return Array.from(new Set((prompts || []).map((p: any) => (p.use_case || "").trim()).filter(Boolean)));
+    return Array.from(new Set((prompts || []).map((p) => (p.use_case || "").trim()).filter(Boolean)));
   }, [prompts]);
 
   const availableTags = useMemo(() => {
-    return Array.from(new Set((prompts || []).flatMap((p: any) => Array.isArray(p.tags) ? p.tags : []).filter(Boolean)));
+    return Array.from(new Set((prompts || []).flatMap((p) => Array.isArray(p.tags) ? p.tags : []).filter(Boolean)));
   }, [prompts]);
 
   const filteredPrompts = useMemo(() => {
-    const list = prompts || [];
-    return list.filter((p: any) => {
+    const list = (prompts || []) as Tables<"prompts">[];
+    return list.filter((p) => {
       const useCaseOk = selectedUseCase ? p.use_case === selectedUseCase : true;
       const tagsOk = selectedTags.length > 0 ? selectedTags.every((t) => Array.isArray(p.tags) && p.tags.includes(t)) : true;
       return useCaseOk && tagsOk;
@@ -196,7 +200,7 @@ export default function PromptLibrary() {
         </Card>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {filteredPrompts.map((prompt: any) => (
+          {filteredPrompts.map((prompt) => (
             <Card key={prompt.id} className="group relative shadow-md transition-all hover:shadow-lg">
               <CardHeader>
                 <div className="flex items-start justify-between">
@@ -220,7 +224,7 @@ export default function PromptLibrary() {
                   </div>
                   {prompt.tags && prompt.tags.length > 0 && (
                     <div className="flex flex-wrap gap-1">
-                      {prompt.tags.map((tag: string, index: number) => (
+                      {prompt.tags.map((tag, index) => (
                         <Badge key={index} variant="secondary" className="text-xs">
                           {tag}
                         </Badge>
@@ -246,8 +250,16 @@ export default function PromptLibrary() {
                       <Trash2 className="mr-2 h-3 w-3" />
                       Delete
                     </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => { setSharePrompt(prompt); setShareOpen(true); }}
+                      className="flex-1"
+                    >
+                      Share
+                    </Button>
                   </div>
-                </div>
+                  </div>
               </CardContent>
             </Card>
           ))}
@@ -259,6 +271,9 @@ export default function PromptLibrary() {
         onOpenChange={handleCloseDialog}
         prompt={editingPrompt}
       />
+      {sharePrompt && (
+        <SharePromptDialog open={shareOpen} onOpenChange={setShareOpen} prompt={sharePrompt} />
+      )}
     </div>
   );
 }

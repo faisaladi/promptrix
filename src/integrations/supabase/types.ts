@@ -324,6 +324,64 @@ export type Database = {
           },
         ]
       }
+      // Added: prompt_public_shares
+      prompt_public_shares: {
+        Row: {
+          id: string
+          prompt_id: string
+          owner_id: string
+          slug: string
+          version_mode: "live" | "fixed"
+          fixed_version_id: string | null
+          is_active: boolean
+          allow_copy: boolean
+          expires_at: string | null
+          created_at: string
+          revoked_at: string | null
+        }
+        Insert: {
+          id?: string
+          prompt_id: string
+          owner_id: string
+          slug: string
+          version_mode?: "live" | "fixed"
+          fixed_version_id?: string | null
+          is_active?: boolean
+          allow_copy?: boolean
+          expires_at?: string | null
+          created_at?: string
+          revoked_at?: string | null
+        }
+        Update: {
+          id?: string
+          prompt_id?: string
+          owner_id?: string
+          slug?: string
+          version_mode?: "live" | "fixed"
+          fixed_version_id?: string | null
+          is_active?: boolean
+          allow_copy?: boolean
+          expires_at?: string | null
+          created_at?: string
+          revoked_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prompt_public_shares_prompt_id_fkey"
+            columns: ["prompt_id"]
+            isOneToOne: false
+            referencedRelation: "prompts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prompt_public_shares_fixed_version_id_fkey"
+            columns: ["fixed_version_id"]
+            isOneToOne: false
+            referencedRelation: "prompt_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

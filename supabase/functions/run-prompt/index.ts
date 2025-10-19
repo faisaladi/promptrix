@@ -76,21 +76,38 @@ serve(async (req) => {
       const errorText = await response.text();
       console.error('OpenRouter error:', response.status, errorText);
       
+      let errorJson: any;
+      try { errorJson = JSON.parse(errorText); } catch (_) {}
+      const message = errorJson?.error?.message || errorText;
+      const code = errorJson?.error?.code || response.status;
+      
       if (response.status === 429) {
         return new Response(
-          JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }), 
+          JSON.stringify({
+            error: 'Rate limit exceeded. Please try again later.',
+            details: { provider: 'OpenRouter', status: response.status, code, message, model: resolvedModel }
+          }),
           { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
       
       if (response.status === 402) {
         return new Response(
-          JSON.stringify({ error: 'Payment required. Please add credits to your workspace.' }), 
+          JSON.stringify({
+            error: 'Payment required. Please add credits to your workspace.',
+            details: { provider: 'OpenRouter', status: response.status, code, message, model: resolvedModel }
+          }),
           { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-
-      throw new Error(`OpenRouter error: ${response.status}`);
+  
+      return new Response(
+        JSON.stringify({
+          error: 'AI service error',
+          details: { provider: 'OpenRouter', status: response.status, code, message, model: resolvedModel }
+        }),
+        { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const data = await response.json();

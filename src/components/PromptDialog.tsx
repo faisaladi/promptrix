@@ -19,18 +19,29 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import { PromptVersionTimeline } from "./PromptVersionTimeline";
+import type { Tables, TablesInsert, TablesUpdate, Enums } from "@/integrations/supabase/types";
 
 interface PromptDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  prompt?: any;
+  prompt?: Tables<"prompts"> | null;
 }
+
+type FormValues = {
+  use_case: Enums<"use_case_type">;
+  title: string;
+  description: string;
+  prompt_template: string;
+  is_active: boolean;
+  tags: string;
+  change_message: string;
+};
 
 export function PromptDialog({ open, onOpenChange, prompt }: PromptDialogProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("edit");
-  const { register, handleSubmit, reset, watch, setValue } = useForm({
+  const { register, handleSubmit, reset, watch, setValue } = useForm<FormValues>({
     defaultValues: {
       use_case: "product",
       title: "",
@@ -68,7 +79,7 @@ export function PromptDialog({ open, onOpenChange, prompt }: PromptDialogProps) 
   }, [prompt, reset]);
 
   const mutation = useMutation({
-    mutationFn: async (data: any) => {
+    mutationFn: async (data: FormValues) => {
       const { data: user } = await supabase.auth.getUser();
       if (!user.user) throw new Error("Not authenticated");
 
@@ -77,7 +88,7 @@ export function PromptDialog({ open, onOpenChange, prompt }: PromptDialogProps) 
         .map((t: string) => t.trim())
         .filter((t: string) => t);
 
-      const payload = {
+      const common: TablesUpdate<"prompts"> = {
         user_id: user.user.id,
         use_case: data.use_case,
         title: data.title,
@@ -88,14 +99,12 @@ export function PromptDialog({ open, onOpenChange, prompt }: PromptDialogProps) 
       };
 
       if (prompt) {
-        // Update the main prompt
         const { error: updateError } = await supabase
           .from("prompts")
-          .update(payload)
+          .update(common)
           .eq("id", prompt.id);
         if (updateError) throw updateError;
 
-        // Get the latest version number
         const { data: versions, error: versionsError } = await supabase
           .from("prompt_versions")
           .select("version_number")
@@ -107,23 +116,23 @@ export function PromptDialog({ open, onOpenChange, prompt }: PromptDialogProps) 
 
         const nextVersion = (versions?.[0]?.version_number || 0) + 1;
 
-        // Create new version
+        const versionPayload: TablesInsert<"prompt_versions"> = {
+          prompt_id: prompt.id,
+          version_number: nextVersion,
+          title: data.title,
+          description: data.description || null,
+          prompt_template: data.prompt_template,
+          change_message: data.change_message || "Updated prompt",
+          is_live: true,
+          created_by: user.user.id,
+        };
+
         const { error: versionError } = await supabase
           .from("prompt_versions")
-          .insert({
-            prompt_id: prompt.id,
-            version_number: nextVersion,
-            title: data.title,
-            description: data.description,
-            prompt_template: data.prompt_template,
-            change_message: data.change_message || "Updated prompt",
-            is_live: true,
-            created_by: user.user.id,
-          });
+          .insert(versionPayload);
 
         if (versionError) throw versionError;
 
-        // Set all other versions to not live
         const { error: unsetError } = await supabase
           .from("prompt_versions")
           .update({ is_live: false })
@@ -132,6 +141,15 @@ export function PromptDialog({ open, onOpenChange, prompt }: PromptDialogProps) 
 
         if (unsetError) throw unsetError;
       } else {
+        const payload: TablesInsert<"prompts"> = {
+          user_id: user.user.id,
+          use_case: data.use_case,
+          title: data.title,
+          description: data.description || null,
+          prompt_template: data.prompt_template,
+          is_active: data.is_active,
+          tags,
+        };
         const { error } = await supabase.from("prompts").insert(payload);
         if (error) throw error;
       }
@@ -146,16 +164,17 @@ export function PromptDialog({ open, onOpenChange, prompt }: PromptDialogProps) 
       });
       onOpenChange(false);
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
+      const message = error instanceof Error ? error.message : "Failed to save prompt";
       toast({
         title: "Error",
-        description: error.message || "Failed to save prompt",
+        description: message,
         variant: "destructive",
       });
     },
   });
 
-  const handleRevertVersion = (version: any) => {
+  const handleRevertVersion = (version: Tables<"prompt_versions">) => {
     setValue("title", version.title);
     setValue("description", version.description || "");
     setValue("prompt_template", version.prompt_template);
@@ -191,7 +210,7 @@ export function PromptDialog({ open, onOpenChange, prompt }: PromptDialogProps) 
               <Label htmlFor="use_case">Use Case</Label>
               <Select
                 value={watch("use_case")}
-                onValueChange={(value) => setValue("use_case", value)}
+                onValueChange={(value) => setValue("use_case", value as Enums<"use_case_type">)}
               >
                 <SelectTrigger id="use_case">
                   <SelectValue />
@@ -248,12 +267,11 @@ export function PromptDialog({ open, onOpenChange, prompt }: PromptDialogProps) 
           <div className="flex items-center space-x-2">
             <Switch
               id="is_active"
+              {...register("is_active")}
               checked={watch("is_active")}
-              onCheckedChange={(checked) => setValue("is_active", checked)}
+              onCheckedChange={(checked) => setValue("is_active", !!checked)}
             />
-            <Label htmlFor="is_active" className="cursor-pointer">
-              Active (available in Prompt Agent)
-            </Label>
+            <Label htmlFor="is_active">Active</Label>
           </div>
 
           <div className="flex justify-end gap-2">
@@ -262,19 +280,16 @@ export function PromptDialog({ open, onOpenChange, prompt }: PromptDialogProps) 
             </Button>
             <Button type="submit" disabled={mutation.isPending}>
               {mutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {prompt ? "Save as New Version" : "Create"}
+              {prompt ? "Save Changes" : "Create Prompt"}
             </Button>
           </div>
-        </form>
-      </TabsContent>
+              </form>
+            </TabsContent>
 
-      <TabsContent value="history" className="max-h-[60vh] overflow-y-auto">
-        <PromptVersionTimeline 
-          promptId={prompt.id}
-          onRevertVersion={handleRevertVersion}
-        />
-      </TabsContent>
-    </Tabs>
+            <TabsContent value="history" className="max-h-[60vh] overflow-y-auto">
+              <PromptVersionTimeline promptId={prompt.id} onRevertVersion={handleRevertVersion} />
+            </TabsContent>
+          </Tabs>
         ) : (
           <form onSubmit={handleSubmit((data) => mutation.mutate(data))} className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2">
@@ -282,7 +297,7 @@ export function PromptDialog({ open, onOpenChange, prompt }: PromptDialogProps) 
                 <Label htmlFor="use_case">Use Case</Label>
                 <Select
                   value={watch("use_case")}
-                  onValueChange={(value) => setValue("use_case", value)}
+                  onValueChange={(value) => setValue("use_case", value as Enums<"use_case_type">)}
                 >
                   <SelectTrigger id="use_case">
                     <SelectValue />
@@ -328,12 +343,11 @@ export function PromptDialog({ open, onOpenChange, prompt }: PromptDialogProps) 
             <div className="flex items-center space-x-2">
               <Switch
                 id="is_active"
+                {...register("is_active")}
                 checked={watch("is_active")}
-                onCheckedChange={(checked) => setValue("is_active", checked)}
+                onCheckedChange={(checked) => setValue("is_active", !!checked)}
               />
-              <Label htmlFor="is_active" className="cursor-pointer">
-                Active (available in Prompt Agent)
-              </Label>
+              <Label htmlFor="is_active">Active</Label>
             </div>
 
             <div className="flex justify-end gap-2">
@@ -342,7 +356,7 @@ export function PromptDialog({ open, onOpenChange, prompt }: PromptDialogProps) 
               </Button>
               <Button type="submit" disabled={mutation.isPending}>
                 {mutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Create
+                Create Prompt
               </Button>
             </div>
           </form>

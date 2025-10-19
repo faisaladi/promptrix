@@ -15,6 +15,8 @@ export default function ChatInterface() {
   const queryClient = useQueryClient();
   const [input, setInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [streamingText, setStreamingText] = useState("");
+  const [isStreaming, setIsStreaming] = useState(false);
 
   // Fetch conversation details
   const { data: conversation } = useQuery({
@@ -57,32 +59,113 @@ export default function ChatInterface() {
         [...(messages ?? [])].reverse().find((m) => m.model)?.model ||
         "openai/gpt-4o-mini";
 
-      const { data, error } = await supabase.functions.invoke("chat-session", {
-        body: {
+      // Build Supabase Functions URL and auth
+      const functionsUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat-session`;
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+
+      const res = await fetch(functionsUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+          Accept: "text/event-stream",
+        },
+        body: JSON.stringify({
           conversationId,
           userMessage,
           model: modelToUse,
-        },
+          stream: true,
+        }),
       });
 
-      if (error) throw error;
-      return data;
+      if (!res.ok) {
+        const text = await res.text();
+        try {
+          const json = JSON.parse(text);
+          throw new Error(json?.details?.message || json?.error || text);
+        } catch {
+          throw new Error(text || "AI service error");
+        }
+      }
+
+      setIsStreaming(true);
+      setStreamingText("");
+
+      const reader = res.body!.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let finalMessage = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        const events = buffer.split("\n\n");
+        buffer = events.pop() || ""; // leftover partial
+
+        for (const evt of events) {
+          const lines = evt.split("\n");
+          let eventType = "message";
+          let dataStr = "";
+          for (const line of lines) {
+            if (line.startsWith("event:")) eventType = line.slice(6).trim();
+            else if (line.startsWith("data:")) dataStr += line.slice(5).trim();
+          }
+
+          if (eventType === "token") {
+            try {
+              const token = JSON.parse(dataStr);
+              setStreamingText((prev) => prev + token);
+            } catch {
+              setStreamingText((prev) => prev + dataStr);
+            }
+          } else if (eventType === "error") {
+            try {
+              const details = JSON.parse(dataStr);
+              toast.error(details?.message || "AI service error");
+            } catch {
+              toast.error("AI service error");
+            }
+          } else if (eventType === "done") {
+            try {
+              const payload = JSON.parse(dataStr);
+              finalMessage = payload?.message || streamingText;
+            } catch {
+              finalMessage = streamingText;
+            }
+          }
+        }
+      }
+
+      setIsStreaming(false);
+      setStreamingText("");
+
+      // Invalidate to fetch saved assistant message
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["messages", conversationId] }),
+        queryClient.invalidateQueries({ queryKey: ["conversations"] }),
+      ]);
+
+      setInput("");
+      return { conversationId, message: finalMessage };
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["messages", conversationId] });
-      queryClient.invalidateQueries({ queryKey: ["conversations"] });
-      setInput("");
+      // No-op: already invalidated and cleared input in mutationFn
     },
     onError: (error: any) => {
       console.error("Error sending message:", error);
       toast.error(error.message || "Failed to send message");
+      setIsStreaming(false);
+      setStreamingText("");
     },
   });
 
   // Auto-scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages, streamingText]);
 
   // Subscribe to realtime updates
   useEffect(() => {
@@ -175,6 +258,13 @@ export default function ChatInterface() {
             </p>
           </div>
         )}
+        {isStreaming && streamingText && (
+          <ChatMessage
+            role="assistant"
+            content={streamingText}
+            timestamp={new Date().toISOString()}
+          />
+        )}
         <div ref={messagesEndRef} />
       </div>
 
@@ -187,14 +277,14 @@ export default function ChatInterface() {
             onKeyDown={handleKeyDown}
             placeholder="Type your message... (Enter to send, Shift+Enter for new line)"
             className="min-h-[60px] max-h-[200px]"
-            disabled={sendMessage.isPending}
+            disabled={sendMessage.isPending || isStreaming}
           />
           <Button
             type="submit"
-            disabled={!input.trim() || sendMessage.isPending}
+            disabled={!input.trim() || sendMessage.isPending || isStreaming}
             className="self-end"
           >
-            {sendMessage.isPending ? (
+            {sendMessage.isPending || isStreaming ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
               <Send className="h-4 w-4" />

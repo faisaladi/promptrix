@@ -18,10 +18,11 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { Clock, Trash2, CheckCircle2, RotateCcw } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import type { Database } from "@/integrations/supabase/types";
 
 interface PromptVersionTimelineProps {
   promptId: string;
-  onRevertVersion?: (version: any) => void;
+  onRevertVersion?: (version: Database["public"]["Tables"]["prompt_versions"]["Row"]) => void;
 }
 
 export function PromptVersionTimeline({ promptId, onRevertVersion }: PromptVersionTimelineProps) {
@@ -30,7 +31,7 @@ export function PromptVersionTimeline({ promptId, onRevertVersion }: PromptVersi
   const [deleteVersionId, setDeleteVersionId] = useState<string | null>(null);
   const [expandedVersion, setExpandedVersion] = useState<string | null>(null);
 
-  const { data: versions, isLoading } = useQuery({
+  const { data: versions, isLoading } = useQuery<Database["public"]["Tables"]["prompt_versions"]["Row"][]>({
     queryKey: ["prompt-versions", promptId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -38,9 +39,9 @@ export function PromptVersionTimeline({ promptId, onRevertVersion }: PromptVersi
         .select("*")
         .eq("prompt_id", promptId)
         .order("version_number", { ascending: false });
-
+  
       if (error) throw error;
-      return data;
+      return data as Database["public"]["Tables"]["prompt_versions"]["Row"][];
     },
     enabled: !!promptId,
   });
@@ -67,10 +68,11 @@ export function PromptVersionTimeline({ promptId, onRevertVersion }: PromptVersi
       });
       setDeleteVersionId(null);
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
+      const message = error instanceof Error ? error.message : "Failed to delete version";
       toast({
         title: "Error",
-        description: error.message || "Failed to delete version",
+        description: message,
         variant: "destructive",
       });
     },
@@ -101,10 +103,11 @@ export function PromptVersionTimeline({ promptId, onRevertVersion }: PromptVersi
         description: "Live version updated successfully",
       });
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
+      const message = error instanceof Error ? error.message : "Failed to update live version";
       toast({
         title: "Error",
-        description: error.message || "Failed to update live version",
+        description: message,
         variant: "destructive",
       });
     },

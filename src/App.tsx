@@ -17,6 +17,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "./integrations/supabase/client";
 import Privacy from "./pages/Privacy";
 import Terms from "./pages/Terms";
+import PublicPrompt from "./pages/PublicPrompt";
 
 const queryClient = new QueryClient();
 
@@ -61,6 +62,7 @@ const App = () => {
               <Route path="/signin" element={<Auth />} />
               <Route path="/privacy" element={<Privacy />} />
               <Route path="/terms" element={<Terms />} />
+              <Route path="/p/:slug" element={<PublicPrompt />} />
               <Route path="/" element={<Index />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
@@ -85,6 +87,7 @@ const App = () => {
               <Route path="/settings" element={<Settings />} />
               <Route path="/privacy" element={<Privacy />} />
               <Route path="/terms" element={<Terms />} />
+              <Route path="/p/:slug" element={<PublicPrompt />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Layout>
