@@ -22,3 +22,21 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# OS artifacts
+Thumbs.db
+desktop.ini
+
+# TypeScript build info
+*.tsbuildinfo
+
+# Env files (commit .env.example only)
+.env
+.env.*
+!.env.example
+
+# Supabase local artifacts
+supabase/.temp/
+
+# Coverage reports
+coverage/

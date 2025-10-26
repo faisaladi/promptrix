@@ -168,10 +168,14 @@ export default function PromptAgent() {
                 <SelectContent>
                   <SelectItem value="openai/gpt-4o-mini">OpenAI GPT-4o Mini</SelectItem>
                   <SelectItem value="openai/gpt-4o">OpenAI GPT-4o</SelectItem>
-                  <SelectItem value="google/gemini-flash-1.5">Gemini Flash 1.5</SelectItem>
-                  <SelectItem value="google/gemini-pro-1.5">Gemini Pro 1.5</SelectItem>
-                  <SelectItem value="meta-llama/llama-3.1-8b-instruct:free">Llama 3.1 8B Instruct (Free)</SelectItem>
-                  <SelectItem value="qwen/qwen-2.5-7b-instruct:free">Qwen 2.5 7B Instruct (Free)</SelectItem>
+                  <SelectItem value="openai/gpt-5-mini">OpenAI GPT-5 Mini</SelectItem>
+                  <SelectItem value="openai/gpt-5">OpenAI GPT-5</SelectItem>
+                  <SelectItem value="google/gemini-2.5-flash">Gemini 2.5 Flash</SelectItem>
+                  <SelectItem value="google/gemini-2.5-pro">Gemini 2.5 Pro</SelectItem>
+                  <SelectItem value="google/gemini-2.5-flash-lite">Gemini 2.5 Flash Lite</SelectItem>
+                  <SelectItem value="google/gemini-2.5-flash-image">Gemini 2.5 Flash Image</SelectItem>
+                  <SelectItem value="anthropic/claude-sonnet-4.5">Claude Sonnet 4.5</SelectItem>
+                  <SelectItem value="anthropic/claude-haiku-4.5">Claude Haiku 4.5</SelectItem>
                 </SelectContent>
               </Select>
             </div>

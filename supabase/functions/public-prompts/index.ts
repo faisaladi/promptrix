@@ -1,75 +1,101 @@
-// deno-lint-ignore-file no-explicit-any
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+// Basic in-memory rate limiter (windowed counter)
+const RL_WINDOW_MS = Number(Deno.env.get('RL_WINDOW_MS') ?? 60000);
+const RL_MAX = Number(Deno.env.get('RL_MAX') ?? 120);
+const rlStore = new Map<string, { count: number; resetAt: number }>();
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+serve(async (req: Request) => {
+  // Build per-request CORS headers from allowed origins
+  const origin = req.headers.get('origin') ?? '*';
+  const allowedList = (Deno.env.get('ALLOWED_ORIGINS') ?? '').split(',').map(s => s.trim()).filter(Boolean);
+  const isAllowed = allowedList.length === 0 ? true : allowedList.includes(origin);
+  const reqId = req.headers.get('x-request-id') ?? crypto.randomUUID();
+  const corsHeaders = {
+    'Access-Control-Allow-Origin': isAllowed ? origin : 'null',
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-request-id',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Vary': 'Origin',
+    'X-Request-Id': reqId,
+  };
+
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  // Rate limit check (IP-based)
+  const ip = (req.headers.get('x-forwarded-for')?.split(',')[0]?.trim())
+    ?? req.headers.get('cf-connecting-ip')
+    ?? 'unknown';
+  const now = Date.now();
+  const entry = rlStore.get(ip);
+  if (!entry || now > entry.resetAt) {
+    rlStore.set(ip, { count: 1, resetAt: now + RL_WINDOW_MS });
+  } else if (entry.count >= RL_MAX) {
+    const retry = Math.max(0, Math.ceil((entry.resetAt - now) / 1000));
+    return new Response(
+      JSON.stringify({ error: 'Too many requests', details: { ip, windowMs: RL_WINDOW_MS, max: RL_MAX } }),
+      { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Retry-After': String(retry) } }
+    );
+  } else {
+    entry.count++;
   }
 
   try {
     const url = new URL(req.url);
-    let slug: string | null = null;
+    const slug = url.searchParams.get('slug');
 
-    if (req.method === "POST") {
-      try {
-        const body = await req.json();
-        slug = body?.slug ?? null;
-      } catch {
-        slug = null;
-      }
-    } else {
-      slug = url.searchParams.get("slug");
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    let rpcSlug = slug;
+
+    if (req.method === 'POST') {
+      const body = await req.json();
+      rpcSlug = body.slug ?? slug;
     }
 
-    if (!slug) {
+    if (!rpcSlug) {
       return new Response(
-        JSON.stringify({ error: { status: 400, message: "Missing slug" } }),
-        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } },
+        JSON.stringify({ error: 'Missing slug parameter' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-
-    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: req.headers.get("Authorization") ?? "" } },
-    });
-
-    const { data, error } = await supabase.rpc("get_public_prompt_by_slug", { _slug: slug });
+    const { data, error } = await supabase.rpc('get_public_prompt_by_slug', { _slug: rpcSlug });
 
     if (error) {
+      console.error('RPC error:', error);
       return new Response(
-        JSON.stringify({ error: { status: 500, message: error.message } }),
-        { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } },
+        JSON.stringify({ error: 'Failed to fetch public prompt' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    if (!data || (Array.isArray(data) && data.length === 0)) {
+    if (!data) {
       return new Response(
-        JSON.stringify({ error: { status: 404, message: "Prompt not found or not public" } }),
-        { status: 404, headers: { "Content-Type": "application/json", ...corsHeaders } },
+        JSON.stringify({ error: 'Prompt not found or not active/expired' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Supabase rpc returns array for RETURNS TABLE; normalize
-    const row = Array.isArray(data) ? data[0] : data;
-
-    return new Response(JSON.stringify({ prompt: row }), {
-      status: 200,
-      headers: { "Content-Type": "application/json", ...corsHeaders },
+    return new Response(JSON.stringify({ prompt: data }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
-  } catch (e: any) {
-    return new Response(
-      JSON.stringify({ error: { status: 500, message: e?.message ?? "Unexpected error" } }),
-      { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } },
-    );
+  } catch (err) {
+    console.error('Error in public-prompts function:', err);
+    const message = err instanceof Error ? err.message : 'Internal server error';
+    return new Response(JSON.stringify({ error: message }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   }
 });

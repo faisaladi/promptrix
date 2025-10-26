@@ -116,6 +116,9 @@ export function SharePromptDialog({ open, onOpenChange, prompt }: SharePromptDia
       const ownerId = userInfo.user?.id;
       if (!ownerId) throw new Error("Not authenticated");
 
+      // Convert expiration to UTC ISO string for timestamptz consistency
+      const expiresAtIso = expiresAt ? new Date(expiresAt).toISOString() : null;
+
       if (editing) {
         const { error } = await supabase
           .from("prompt_public_shares")
@@ -125,7 +128,7 @@ export function SharePromptDialog({ open, onOpenChange, prompt }: SharePromptDia
             fixed_version_id: versionMode === "fixed" ? fixedVersionId : null,
             allow_copy: allowCopy,
             is_active: isActive,
-            expires_at: expiresAt,
+            expires_at: expiresAtIso,
           })
           .eq("id", editing.id);
         if (error) throw error;
@@ -139,7 +142,7 @@ export function SharePromptDialog({ open, onOpenChange, prompt }: SharePromptDia
           fixed_version_id: versionMode === "fixed" ? fixedVersionId : null,
           is_active: isActive,
           allow_copy: allowCopy,
-          expires_at: expiresAt,
+          expires_at: expiresAtIso,
         };
         const { error } = await supabase.from("prompt_public_shares").insert(payload);
         if (error) throw error;

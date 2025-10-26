@@ -15,8 +15,10 @@ export default function ChatInterface() {
   const queryClient = useQueryClient();
   const [input, setInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const [streamingText, setStreamingText] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
+  const [pendingUserMessage, setPendingUserMessage] = useState<{ content: string; timestamp: string } | null>(null);
 
   // Fetch conversation details
   const { data: conversation } = useQuery({
@@ -164,8 +166,23 @@ export default function ChatInterface() {
 
   // Auto-scroll to bottom
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, streamingText]);
+    const el = messagesContainerRef.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior: isStreaming ? "auto" : "smooth" });
+  }, [messages, isStreaming]);
+
+  useEffect(() => {
+    const el = messagesContainerRef.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior: "auto" });
+  }, [streamingText, pendingUserMessage]);
+
+  // Clear optimistic message when server-inserted user message appears
+  useEffect(() => {
+    if (!pendingUserMessage) return;
+    const found = messages?.some((m: any) => m.role === "user" && m.content === pendingUserMessage.content);
+    if (found) setPendingUserMessage(null);
+  }, [messages, pendingUserMessage]);
 
   // Subscribe to realtime updates
   useEffect(() => {
@@ -195,6 +212,7 @@ export default function ChatInterface() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || sendMessage.isPending) return;
+    setPendingUserMessage({ content: input, timestamp: new Date().toISOString() });
     sendMessage.mutate(input);
   };
 
@@ -237,7 +255,7 @@ export default function ChatInterface() {
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-1">
+      <div ref={messagesContainerRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-1 overscroll-contain" style={{ overflowAnchor: "none" }}>
         {isLoading ? (
           <div className="flex items-center justify-center h-full">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -258,6 +276,13 @@ export default function ChatInterface() {
             </p>
           </div>
         )}
+        {pendingUserMessage && (
+          <ChatMessage
+            role="user"
+            content={pendingUserMessage.content}
+            timestamp={pendingUserMessage.timestamp}
+          />
+        )}
         {isStreaming && streamingText && (
           <ChatMessage
             role="assistant"
@@ -269,7 +294,7 @@ export default function ChatInterface() {
       </div>
 
       {/* Input */}
-      <Card className="m-4 p-4">
+      <Card className="m-4 p-4 sticky bottom-0 bg-background z-10">
         <form onSubmit={handleSubmit} className="flex gap-2">
           <Textarea
             value={input}

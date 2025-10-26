@@ -1,20 +1,54 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
+// Basic in-memory rate limiter (windowed counter)
+const RL_WINDOW_MS = Number(Deno.env.get('RL_WINDOW_MS') ?? 60000);
+const RL_MAX = Number(Deno.env.get('RL_MAX') ?? 60);
+const rlStore = new Map<string, { count: number; resetAt: number }>();
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-serve(async (req) => {
+serve(async (req: Request) => {
+  const origin = req.headers.get('origin') ?? '*';
+  const allowedList = (Deno.env.get('ALLOWED_ORIGINS') ?? '').split(',').map(s => s.trim()).filter(Boolean);
+  const isAllowed = allowedList.length === 0 ? true : allowedList.includes(origin);
+  const reqId = req.headers.get('x-request-id') ?? crypto.randomUUID();
+  const ip = (req.headers.get('x-forwarded-for')?.split(',')[0]?.trim())
+    ?? req.headers.get('cf-connecting-ip')
+    ?? 'unknown';
+  const corsHeaders = {
+    'Access-Control-Allow-Origin': isAllowed ? origin : 'null',
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-request-id',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Vary': 'Origin',
+    'X-Request-Id': reqId,
+  };
+
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Rate limit check (IP-based)
+  const now = Date.now();
+  const entry = rlStore.get(ip);
+  if (!entry || now > entry.resetAt) {
+    rlStore.set(ip, { count: 1, resetAt: now + RL_WINDOW_MS });
+  } else if (entry.count >= RL_MAX) {
+    const retry = Math.max(0, Math.ceil((entry.resetAt - now) / 1000));
+    return new Response(
+      JSON.stringify({ error: 'Too many requests', details: { ip, windowMs: RL_WINDOW_MS, max: RL_MAX } }),
+      { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Retry-After': String(retry) } }
+    );
+  } else {
+    entry.count++;
+  }
+
   try {
     const { promptTemplate, inputContent, additionalInstruction, model } = await req.json();
-    
-    console.log('Running prompt with model:', model);
+    console.log(JSON.stringify({ level: 'info', reqId, ip, origin, event: 'run-prompt.start', model }));
     
     const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY') || Deno.env.get('LOVABLE_API_KEY');
     if (!OPENROUTER_API_KEY) {
@@ -33,8 +67,6 @@ serve(async (req) => {
     if (additionalInstruction) {
       fullPrompt += `\n\nAdditional instructions: ${additionalInstruction}`;
     }
-
-    console.log('Sending request to OpenRouter');
 
     const OPENROUTER_URL = Deno.env.get('OPENROUTER_BASE_URL') || 'https://openrouter.ai/api/v1';
     const headers: Record<string, string> = {
@@ -74,12 +106,11 @@ serve(async (req) => {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('OpenRouter error:', response.status, errorText);
-      
       let errorJson: any;
       try { errorJson = JSON.parse(errorText); } catch (_) {}
       const message = errorJson?.error?.message || errorText;
       const code = errorJson?.error?.code || response.status;
+      console.error(JSON.stringify({ level: 'error', reqId, ip, origin, event: 'run-prompt.provider-error', status: response.status, code, message }));
       
       if (response.status === 429) {
         return new Response(
@@ -113,7 +144,7 @@ serve(async (req) => {
     const data = await response.json();
     const result = data.choices?.[0]?.message?.content || '';
 
-    console.log('Successfully generated result');
+    console.log(JSON.stringify({ level: 'info', reqId, ip, origin, event: 'run-prompt.success' }));
 
     return new Response(
       JSON.stringify({ result }),
@@ -121,8 +152,8 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('Error in run-prompt function:', error);
     const errorMessage = error instanceof Error ? error.message : 'Internal server error';
+    console.error(JSON.stringify({ level: 'error', reqId, ip, origin, event: 'run-prompt.error', message: errorMessage }));
     return new Response(
       JSON.stringify({ error: errorMessage }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
