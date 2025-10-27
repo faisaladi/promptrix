@@ -40,3 +40,5 @@ supabase/.temp/
 
 # Coverage reports
 coverage/
+
+.trae/
