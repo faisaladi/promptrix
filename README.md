@@ -1,73 +1,68 @@
-# Welcome to your Lovable project
+# PROMPTRIX - Prompt Engineering & Model Routing Hub
 
-## Project info
+> **Project Status**: 🟡 `Completed Prototype / Showcase`  
+> **Tech Stack**: React 18, TypeScript, Vite, Tailwind CSS, Supabase (Auth/Database), OpenRouter API, Server-Sent Events (SSE)  
+> **Architecture**: Full-stack prompt engineering hub with streaming chat, version-controlled prompt sharing, and multi-model routing
 
-**URL**: https://lovable.dev/projects/dc7aed66-203f-4a5a-b85d-8a1ee680aead
+A modern workspace for authoring, evaluating, versioning, and sharing AI prompts across frontier LLM models.
 
-## How can I edit this code?
+---
 
-There are several ways of editing your application.
+## 🌟 Key Features
 
-**Use Lovable**
+- **Multi-Model Routing via OpenRouter**: Seamlessly route prompts across leading AI models (GPT-4o, Claude 3.5 Sonnet, Gemini Pro, Llama 3) from a unified interface.
+- **Real-Time Streaming**: High-throughput Server-Sent Events (SSE) chat streaming with markdown tables, code syntax highlighting, and chunk parsing.
+- **Version Control & Sharing**: Slug-based public sharing with version histories, forking, and copy permissions.
+- **Prompt Library Management**: Tagging, categorization, search filtering, and use-case taxonomies.
+- **Security & Reliability**: Built-in IP rate limiting, request correlation IDs, structured logging, and CORS validation.
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/dc7aed66-203f-4a5a-b85d-8a1ee680aead) and start prompting.
+---
 
-Changes made via Lovable will be committed automatically to this repo.
+## 🛠️ Architecture
 
-**Use your preferred IDE**
+```
+├── src/
+│   ├── components/         # Shadcn & custom prompt/chat UI elements
+│   ├── integrations/       # Supabase typed database client
+│   ├── pages/              # Index, Prompt Library, Chat, Settings
+│   └── types/              # Type definitions for prompts, models, sessions
+├── supabase/               # Migrations, Edge Functions, Schema DDL
+└── .env.example            # Environment configuration template
+```
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+---
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+## 🚀 Getting Started
 
-Follow these steps:
+### 1. Clone & Install
+```bash
+git clone https://github.com/faisaladi/promptrix.git
+cd promptrix
+npm install
+```
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+### 2. Configure Environment
+Copy `.env.example` to `.env`:
+```bash
+cp .env.example .env
+```
+Fill in your Supabase project credentials and OpenRouter API key:
+```env
+VITE_SUPABASE_PROJECT_ID="your-project-ref"
+VITE_SUPABASE_PUBLISHABLE_KEY="your-anon-key"
+VITE_SUPABASE_URL="https://your-project-ref.supabase.co"
+OPENROUTER_API_KEY="sk-or-your-key"
+```
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+### 3. Run Development Server
+```bash
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+Open [http://localhost:8080](http://localhost:8080) (or the displayed Vite port) in your browser.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+---
 
-**Use GitHub Codespaces**
+## 📜 License
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/dc7aed66-203f-4a5a-b85d-8a1ee680aead) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+MIT License - see [LICENSE](LICENSE) for details.
